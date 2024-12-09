@@ -18,9 +18,12 @@
 
 package lmap
 
-import "net"
+import (
+	"net"
+	"strings"
+)
 
-func GetAllIPsFromCIDR(cidr string) ([]HostInfo, error) {
+func GetAllIPsFromCIDR(cidr string, excludes []string) ([]HostInfo, error) {
 	ip, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
 		return nil, err
@@ -28,15 +31,40 @@ func GetAllIPsFromCIDR(cidr string) ([]HostInfo, error) {
 
 	var ips []HostInfo
 	for ip := ip.Mask(ipNet.Mask); ipNet.Contains(ip); inc(ip) {
-		ips = append(ips, HostInfo{
-			host:   dupIP(ip),
-			isUsed: false,
-		})
+		ipStr := ip.String()
+		if !isExcluded(ipStr, excludes) {
+			ips = append(ips, HostInfo{
+				host:   dupIP(ip),
+				isUsed: false,
+			})
+		}
 	}
 	if len(ips) <= 2 {
 		return ips, nil
 	}
 	return ips[0 : len(ips)-1], nil
+}
+
+func isExcluded(ip string, excludes []string) bool {
+	for _, exclude := range excludes {
+		if strings.Contains(exclude, "/") {
+			_, excludeNet, err := net.ParseCIDR(exclude)
+			if err != nil {
+				//fmt.Printf("解析排除规则 %s 失败: %v\n", exclude, err)
+				continue
+			}
+			if excludeNet.Contains(net.ParseIP(ip)) {
+				//fmt.Printf("IP %s 被排除规则 %s 排除\n", ip, exclude)
+				return true
+			}
+		} else {
+			if ip == exclude {
+				//fmt.Printf("IP %s 被排除规则 %s 排除\n", ip, exclude)
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func inc(ip net.IP) {
@@ -49,7 +77,6 @@ func inc(ip net.IP) {
 }
 
 func dupIP(ip net.IP) net.IP {
-	// To save space, try and only use 4 bytes
 	if x := ip.To4(); x != nil {
 		ip = x
 	}

@@ -27,33 +27,39 @@ import (
 
 const OUTPUT_IP_PER_LINE = 3
 
-func CheckIP(subnet string, isVerbose bool) {
+func CheckIP(subnets, excludes []string, isVerbose bool) {
 	checkerGroup := &sync.WaitGroup{}
 	t := time.Now()
-	hosts, _ := GetAllIPsFromCIDR(subnet)
-	for index := range hosts {
-		//time.Sleep(500)
+
+	var allHosts []HostInfo
+	for _, subnet := range subnets {
+		hosts, _ := GetAllIPsFromCIDR(subnet, excludes)
+		allHosts = append(allHosts, hosts...)
+	}
+
+	for index := range allHosts {
 		checkerGroup.Add(1)
 
 		go func(index int) {
 			defer checkerGroup.Done()
-			hosts[index].isUsed = Ping(hosts[index].host)
+			allHosts[index].isUsed = Ping(allHosts[index].host)
 			if isVerbose {
-				if hosts[index].isUsed {
-					fmt.Println("已使用IP：", hosts[index].host.String())
+				if allHosts[index].isUsed {
+					fmt.Println("已使用IP：", allHosts[index].host.String())
 				} else {
-					fmt.Println("未使用IP：", hosts[index].host.String())
+					fmt.Println("未使用IP：", allHosts[index].host.String())
 				}
 			}
 		}(index)
 	}
+
 	checkerGroup.Wait()
 	elapsed := time.Since(t)
 	_, _ = fmt.Fprintln(os.Stderr, "IP扫描完成,耗时", elapsed)
 	fmt.Println("已使用IP：")
-	printIPList(hosts, true)
+	printIPList(allHosts, true)
 	fmt.Println("未使用IP：")
-	printIPList(hosts, false)
+	printIPList(allHosts, false)
 }
 
 func printIPList(hosts []HostInfo, boolFilter bool) {

@@ -29,11 +29,30 @@ import (
 func main() {
 	isVerbose := false
 	flag.BoolVar(&isVerbose, "v", false, "be verbose")
+
+	subnets := multiArg{}
+	flag.Var(&subnets, "subnet", "network to scan (can be specified multiple times)")
+
+	excludes := multiArg{}
+	flag.Var(&excludes, "exclude", "IP or subnet to exclude (can be specified multiple times)")
+
 	flag.Parse()
-	args := flag.Args()
-	if len(args) < 1 {
-		_, _ = fmt.Fprintf(os.Stderr, "使用方法：%s [-v] <网络号>/<CIDR>\n", os.Args[0])
+
+	if len(subnets) < 1 {
+		_, _ = fmt.Fprintf(os.Stderr, "使用方法：%s [-v] -subnet <网络号>/<CIDR> [-subnet ...] [-exclude <IP>/<CIDR>] [-exclude ...]\n", os.Args[0])
 		os.Exit(-1)
 	}
-	lmap.CheckIP(args[0], isVerbose)
+
+	lmap.CheckIP(subnets, excludes, isVerbose)
+}
+
+type multiArg []string
+
+func (m *multiArg) String() string {
+	return fmt.Sprintf("%v", *m)
+}
+
+func (m *multiArg) Set(value string) error {
+	*m = append(*m, value)
+	return nil
 }
