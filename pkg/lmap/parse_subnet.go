@@ -39,10 +39,14 @@ func GetAllIPsFromCIDR(cidr string, excludes []string) ([]HostInfo, error) {
 			})
 		}
 	}
-	if len(ips) <= 2 {
-		return ips, nil
+
+	// For larger networks, remove network and broadcast addresses
+	// For very small networks (like /31, /32), keep all addresses
+	ones, bits := ipNet.Mask.Size()
+	if bits-ones > 2 && len(ips) > 2 {
+		return ips[1 : len(ips)-1], nil // Remove network and broadcast addresses
 	}
-	return ips[0 : len(ips)-1], nil
+	return ips, nil
 }
 
 func isExcluded(ip string, excludes []string) bool {
